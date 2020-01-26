@@ -1,9 +1,3 @@
-// https://docs.particle.io/reference/device-os/firmware/photon/#system-thread
-SYSTEM_THREAD(ENABLED);
-
-// Switch to External antenna
-STARTUP(WiFi.selectAntenna(ANT_EXTERNAL));
-
 #include "FastLED.h"
 FASTLED_USING_NAMESPACE;
 
@@ -12,7 +6,7 @@ FASTLED_USING_NAMESPACE;
 #endif
 
 // clang-format off
-#define DATA_PIN     7
+#define DATA_PIN     3
 #define LED_TYPE     WS2811
 //#define COLOR_ORDER RGB
 
@@ -20,7 +14,7 @@ FASTLED_USING_NAMESPACE;
 #define NUM_LEDS    101
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS_NIGHT                      36
+#define BRIGHTNESS_NIGHT                      96
 #define BRIGHTNESS_DAY                         3
 #define FRAMES_PER_SECOND                    120
 #define MILLIS_PER_FRAME  1000/FRAMES_PER_SECOND
@@ -29,7 +23,7 @@ CRGB leds[NUM_LEDS];
 void setup() {
   delay(1000);
 
-  Time.zone(-8);  // Set Pacific Time Zone
+  // Time.zone(-8);  // Set Pacific Time Zone
 
   FastLED.addLeds<LED_TYPE, DATA_PIN>(leds, NUM_LEDS)
       .setCorrection(Tungsten40W);
@@ -43,19 +37,22 @@ uint8_t gHue = 0;
 void loop() {
   EVERY_N_SECONDS(60) {
     // 4PM to 1 AM
-    if (Time.hour() > 16 || Time.hour() < 1) {
-      FastLED.setBrightness(BRIGHTNESS_NIGHT);
-    } else {
-      FastLED.setBrightness(BRIGHTNESS_DAY);
-    }
+    // if (Time.hour() > 16 || Time.hour() < 1) {
+    //   FastLED.setBrightness(BRIGHTNESS_NIGHT);
+    // } else {
+    //   FastLED.setBrightness(BRIGHTNESS_DAY);
+    // }
+    gHue++;
   }
 
   EVERY_N_MILLISECONDS(MILLIS_PER_FRAME) { onEnterFrame(); }
+  // onEnterFrame();
 }
 
 void onEnterFrame() {
   // xmas_rgbop();
   xmas_rgbop_range();
+  addGlitter(80);
 
   FastLED.show();
 }
@@ -63,23 +60,29 @@ void onEnterFrame() {
 void xmas_rgbop() {
   // Red, Green, Blue, Orange, and Purple cycling Xmas lights
   for (uint8_t i = 0; i < NUM_LEDS; i++) {
-    switch ((i + gHue) % 5) {
+    switch ((gHue) % 5) {
       case 0:
-        leds[i] = CRGB(0xFF0000);
+        leds[i] = CRGB(0xfff276);
         break;
       case 1:
-        leds[i] = CRGB(0x00FF00);
+        leds[i] = CRGB(0x6aff7a);
         break;
       case 2:
-        leds[i] = CRGB(0x0000FF);
+        leds[i] = CRGB(0x5c65ff);
         break;
       case 3:
-        leds[i] = CRGB(0xFFA500);
+        leds[i] = CRGB(0xffae3f);
         break;
       case 4:
-        leds[i] = CRGB(0xFF00FF);
+        leds[i] = CRGB(0xc33fff);
         break;
     }
+  }
+}
+
+void addGlitter(fract8 chanceOfGlitter) {
+  if (random8() < chanceOfGlitter) {
+    leds[random16(NUM_LEDS)] += CRGB::White;
   }
 }
 
@@ -132,7 +135,15 @@ void xmas_rgbop_range() {
   uint8_t color_index = 0;
   for (uint8_t i = 0; i < NUM_LEDS; i++) {
     // Find the brightness using a sine wave.
-    brightness = beatsin8(8, 0, 255, 0, NUM_LEDS * 2 - i * 2);
+    // WARNING: A max of 254 works, 255 fails to create a 0 on the Arduino Nano
+    brightness                 = beatsin8(16, 0, 254, 0, NUM_LEDS * 2 - i * 2);
+    uint16_t scaled_brightness = brightness * 8;
+    if (scaled_brightness > 255) {
+      brightness = 255;
+    } else {
+      brightness = (uint8_t)scaled_brightness;
+    }
+
     // Switch to the next palette, when pixel is dark
     if (brightness == 0) {
       next[i] = true;
